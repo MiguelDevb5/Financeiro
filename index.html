@@ -1,0 +1,245 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Meu Gerenciamento 2026</title>
+    <style>
+        :root { --bg: #f1f5f9; --card: #ffffff; --text: #1e293b; --primary: #2563eb; --border: #e2e8f0; --danger: #ef4444; --success: #22c55e; }
+        .dark-mode { --bg: #0f172a; --card: #1e293b; --text: #f1f5f9; --primary: #3b82f6; --border: #475569; }
+        body { font-family: sans-serif; background: var(--bg); color: var(--text); margin: 0; display: flex; justify-content: center; padding: 10px; transition: 0.3s; }
+        .container { width: 100%; max-width: 450px; }
+        #login-screen, #setup-screen { position: fixed; inset: 0; background: var(--bg); z-index: 9999; display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 20px; }
+        .dots { display: flex; gap: 15px; margin: 20px 0; }
+        .dot { width: 16px; height: 16px; border: 2px solid var(--primary); border-radius: 50%; }
+        .dot.filled { background: var(--primary); }
+        .keypad { display: grid; grid-template-columns: repeat(3, 1fr); gap: 15px; }
+        .key { width: 70px; height: 70px; border-radius: 50%; border: 1px solid var(--border); display: flex; align-items: center; justify-content: center; font-size: 24px; cursor: pointer; background: var(--card); font-weight: bold; }
+        #main-app { display: none; width: 100%; }
+        .card { background: var(--card); padding: 20px; border-radius: 20px; box-shadow: 0 4px 10px rgba(0,0,0,0.1); margin-bottom: 15px; }
+        .divida-card { background: linear-gradient(135deg, #ef4444, #991b1b); color: white; padding: 20px; border-radius: 20px; margin-bottom: 15px; }
+        input, select, button { width: 100%; padding: 12px; margin: 5px 0; border-radius: 12px; border: 1px solid var(--border); background: var(--card); color: var(--text); font-size: 16px; box-sizing: border-box; }
+        .btn-add { background: var(--primary); color: white; border: none; font-weight: bold; padding: 15px; cursor: pointer; }
+        .item { display: flex; justify-content: space-between; align-items: center; padding: 12px 0; border-bottom: 1px solid var(--border); }
+        .saida { color: var(--danger); font-weight: bold; }
+        .entrada { color: var(--success); font-weight: bold; }
+        .btn-icon { background: none; border: none; width: auto; font-size: 16px; cursor: pointer; margin-left: 8px; }
+        .btn-backup { background: #64748b; color: white; font-size: 11px; padding: 8px; border: none; border-radius: 8px; flex: 1; cursor: pointer; }
+    </style>
+</head>
+<body onload="init()">
+
+<div id="setup-screen" style="display:none;">
+    <h3>Configuração Inicial</h3>
+    <input type="text" id="user-name" placeholder="Seu Nome">
+    <input type="text" id="user-recovery" placeholder="Frase de Segurança">
+    <button class="btn-add" onclick="saveSetup()">Salvar e Iniciar</button>
+</div>
+
+<div id="login-screen">
+    <h3>Digite o PIN</h3>
+    <div class="dots"><div class="dot" id="dot1"></div><div class="dot" id="dot2"></div><div class="dot" id="dot3"></div><div class="dot" id="dot4"></div></div>
+    <div class="keypad">
+        <div class="key" onclick="press('1')">1</div><div class="key" onclick="press('2')">2</div><div class="key" onclick="press('3')">3</div>
+        <div class="key" onclick="press('4')">4</div><div class="key" onclick="press('5')">5</div><div class="key" onclick="press('6')">6</div>
+        <div class="key" onclick="press('7')">7</div><div class="key" onclick="press('8')">8</div><div class="key" onclick="press('9')">9</div>
+        <div class="key" onclick="limpar()">C</div><div class="key" onclick="press('0')">0</div><div class="key" onclick="apagar()">←</div>
+    </div>
+    <button onclick="recuperarPIN()" style="background:none; border:none; color:gray; margin-top: 15px; font-size: 12px;">Esqueci o PIN</button>
+</div>
+
+<div id="main-app" class="container">
+    <div style="display:flex; justify-content: space-between; align-items: center; margin-bottom: 15px;">
+        <div>Olá, <strong id="display-name"></strong> 👋</div>
+        <button onclick="toggleMode()" style="background:none; border:none; font-size: 20px;">🌓</button>
+    </div>
+
+    <div class="divida-card">
+        <div style="display:flex; justify-content: space-between; align-items: center;">
+            <div><small>Dívidas Totais</small><h2 id="total-dividas" style="margin:0;">R$ 0,00</h2></div>
+            <button onclick="ajustarDivida()" style="width:auto; font-size:10px; background:rgba(255,255,255,0.2); color:white; border:none; padding:5px; border-radius:5px;">Ajustar</button>
+        </div>
+    </div>
+
+    <div class="card">
+        <div style="display:flex; justify-content: space-between; align-items: center;">
+            <div><small>Saldo em Conta</small><h2 id="saldo-geral" style="margin:0;">R$ 0,00</h2></div>
+            <button onclick="ajustarSaldo()" style="width:auto; font-size:10px; padding:5px; border-radius:5px;">Ajustar</button>
+        </div>
+    </div>
+
+    <div class="card">
+        <input type="hidden" id="edit-id">
+        <input type="text" id="desc" placeholder="O que foi?">
+        <div style="display:grid; grid-template-columns: 1fr 1fr; gap:8px;">
+            <input type="text" id="valor" placeholder="R$ 0,00" inputmode="decimal">
+            <select id="cat">
+                <option value="🍕 Comida">🍕 Comida</option>
+                <option value="🏠 Casa">🏠 Casa</option>
+                <option value="🍿 Lazer">🍿 Lazer</option>
+                <option value="🚗 Transp.">🚗 Transp.</option>
+                <option value="💰 Salário">💰 Salário</option>
+            </select>
+        </div>
+        <div style="display:grid; grid-template-columns: 1fr 1fr; gap:8px;">
+            <select id="pagamento">
+                <option value="📱 PIX">📱 PIX</option>
+                <option value="💳 Cartão">💳 Cartão</option>
+                <option value="💵 Dinheiro">💵 Dinheiro</option>
+                <option value="⚠️ Dívida">⚠️ Dívida</option>
+            </select>
+            <select id="tipo">
+                <option value="saida">Saída (-)</option>
+                <option value="entrada">Entrada (+)</option>
+            </select>
+        </div>
+        <input type="date" id="data">
+        <button class="btn-add" id="btn-save" onclick="salvar()">Confirmar Lançamento</button>
+    </div>
+
+    <div class="card">
+        <div style="display:flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">
+            <strong>Extrato</strong>
+            <button onclick="copiarResumo()" style="width:auto; font-size:11px; padding:5px 10px; border-radius:8px; background:var(--primary); color:white; border:none;">📋 Copiar Texto</button>
+        </div>
+        <div id="lista"></div>
+        <div style="display:flex; gap: 8px; margin-top: 15px; border-top: 1px solid var(--border); padding-top: 15px;">
+            <button onclick="exportarBackup()" class="btn-backup">📤 Exportar Backup</button>
+            <button onclick="importarBackup()" class="btn-backup" style="background:#475569">📥 Importar Backup</button>
+        </div>
+    </div>
+</div>
+
+<script>
+    let registros = JSON.parse(localStorage.getItem('financas_2026_vFinal')) || [];
+    let pinSalvo = localStorage.getItem('app_pin');
+    let nomeUser = localStorage.getItem('app_user_name');
+    let fraseRecuperacao = localStorage.getItem('app_user_recovery');
+    let saldoAjuste = parseFloat(localStorage.getItem('app_saldo_ajuste')) || 0;
+    let dividaAjuste = parseFloat(localStorage.getItem('app_divida_ajuste')) || 0;
+    let pinInput = "";
+
+    function init() {
+        if(localStorage.getItem('darkMode') === 'true') document.body.classList.add('dark-mode');
+        if(!nomeUser) { document.getElementById('login-screen').style.display = 'none'; document.getElementById('setup-screen').style.display = 'flex'; }
+        else { document.getElementById('display-name').innerText = nomeUser; }
+        document.getElementById('data').valueAsDate = new Date();
+    }
+
+    function toggleMode() { document.body.classList.toggle('dark-mode'); localStorage.setItem('darkMode', document.body.classList.contains('dark-mode')); }
+    
+    function saveSetup() {
+        const n = document.getElementById('user-name').value;
+        const r = document.getElementById('user-recovery').value;
+        if(!n || !r) return alert("Preencha seu nome e a frase!");
+        localStorage.setItem('app_user_name', n);
+        localStorage.setItem('app_user_recovery', r);
+        location.reload();
+    }
+
+    function press(n) { if(pinInput.length < 4) pinInput += n; updateDots(); if(pinInput.length === 4) setTimeout(checkPin, 200); }
+    function limpar() { pinInput = ""; updateDots(); }
+    function apagar() { pinInput = pinInput.slice(0,-1); updateDots(); }
+    function updateDots() { for(let i=1; i<=4; i++) document.getElementById('dot'+i).className = i <= pinInput.length ? 'dot filled' : 'dot'; }
+
+    function checkPin() {
+        if(!pinSalvo) { localStorage.setItem('app_pin', pinInput); alert("PIN Salvo!"); location.reload(); }
+        else if(pinInput === pinSalvo) { document.getElementById('login-screen').style.display = 'none'; document.getElementById('main-app').style.display = 'block'; atualizar(); }
+        else { alert("PIN Incorreto!"); limpar(); }
+    }
+
+    function ajustarSaldo() { let v = prompt("Qual o saldo real em conta agora?"); if(v) { saldoAjuste = parseFloat(v.replace(',','.')); localStorage.setItem('app_saldo_ajuste', saldoAjuste); atualizar(); } }
+    function ajustarDivida() { let v = prompt("Qual o valor total das dívidas agora?"); if(v) { dividaAjuste = parseFloat(v.replace(',','.')); localStorage.setItem('app_divida_ajuste', dividaAjuste); atualizar(); } }
+
+    function salvar() {
+        const id = document.getElementById('edit-id').value;
+        const desc = document.getElementById('desc').value;
+        let valorInput = document.getElementById('valor').value.replace(',', '.');
+        const v = parseFloat(valorInput);
+
+        if(!desc || isNaN(v)) return alert("Preencha descrição e valor corretamente!");
+
+        const novo = { id: id ? parseInt(id) : Date.now(), desc, valor: v, cat: document.getElementById('cat').value, pagamento: document.getElementById('pagamento').value, tipo: document.getElementById('tipo').value, data: document.getElementById('data').value };
+        
+        if(id) registros = registros.map(r => r.id === novo.id ? novo : r);
+        else registros.push(novo);
+
+        localStorage.setItem('financas_2026_vFinal', JSON.stringify(registros));
+        document.getElementById('edit-id').value = ''; document.getElementById('desc').value = ''; document.getElementById('valor').value = '';
+        document.getElementById('btn-save').innerText = "Confirmar Lançamento";
+        atualizar();
+    }
+
+    function atualizar() {
+        const lista = document.getElementById('lista'); lista.innerHTML = '';
+        let saldo = saldoAjuste, totalDividas = dividaAjuste;
+
+        registros.sort((a,b) => new Date(b.data) - new Date(a.data)).forEach(r => {
+            if(r.pagamento.includes("Dívida")) totalDividas += r.valor;
+            else r.tipo === 'entrada' ? saldo += r.valor : saldo -= r.valor;
+
+            lista.innerHTML += `<div class="item">
+                <div><b>${r.cat}</b> - ${r.desc}<br><small>${r.pagamento} | ${r.data.split('-').reverse().join('/')}</small></div>
+                <div style="text-align:right">
+                    <span class="${r.tipo}">${r.tipo==='entrada'?'+':'-'} R$ ${r.valor.toFixed(2).replace('.',',')}</span><br>
+                    <button class="btn-icon" onclick="editar(${r.id})">✏️</button>
+                    <button class="btn-icon" onclick="excluir(${r.id})">🗑️</button>
+                </div>
+            </div>`;
+        });
+        document.getElementById('saldo-geral').innerText = "R$ " + saldo.toFixed(2).replace('.',',');
+        document.getElementById('total-dividas').innerText = "R$ " + totalDividas.toFixed(2).replace('.',',');
+    }
+
+    function editar(id) {
+        const r = registros.find(x => x.id === id);
+        document.getElementById('edit-id').value = r.id;
+        document.getElementById('desc').value = r.desc;
+        document.getElementById('valor').value = r.valor.toString().replace('.',',');
+        document.getElementById('cat').value = r.cat;
+        document.getElementById('pagamento').value = r.pagamento;
+        document.getElementById('tipo').value = r.tipo;
+        document.getElementById('data').value = r.data;
+        document.getElementById('btn-save').innerText = "Atualizar Item";
+        window.scrollTo(0,0);
+    }
+
+    function excluir(id) { if(confirm("Deseja apagar este registro?")) { registros = registros.filter(r => r.id !== id); localStorage.setItem('financas_2026_vFinal', JSON.stringify(registros)); atualizar(); } }
+
+    function recuperarPIN() {
+        const r = prompt("Qual sua frase de segurança?");
+        if(r === fraseRecuperacao) {
+            const p = prompt("Digite o novo PIN de 4 números:");
+            if(p && p.length === 4) { localStorage.setItem('app_pin', p); location.reload(); }
+        } else alert("Frase incorreta!");
+    }
+
+    function exportarBackup() {
+        const backup = { registros, nomeUser, fraseRecuperacao, pinSalvo, saldoAjuste, dividaAjuste };
+        const codigo = btoa(JSON.stringify(backup));
+        navigator.clipboard.writeText(codigo).then(() => alert("✅ Código de backup copiado! Guarde no seu WhatsApp."));
+    }
+
+    function importarBackup() {
+        const codigo = prompt("Cole o código de backup aqui:");
+        if(codigo) {
+            try {
+                const d = JSON.parse(atob(codigo));
+                localStorage.setItem('financas_2026_vFinal', JSON.stringify(d.registros));
+                localStorage.setItem('app_user_name', d.nomeUser);
+                localStorage.setItem('app_user_recovery', d.fraseRecuperacao);
+                localStorage.setItem('app_pin', d.pinSalvo);
+                localStorage.setItem('app_saldo_ajuste', d.saldoAjuste);
+                localStorage.setItem('app_divida_ajuste', d.dividaAjuste);
+                location.reload();
+            } catch(e) { alert("Código de backup inválido!"); }
+        }
+    }
+
+    function copiarResumo() {
+        const t = `📊 *Resumo Financeiro*\n💰 Saldo: ${document.getElementById('saldo-geral').innerText}\n⚠️ Dívidas: ${document.getElementById('total-dividas').innerText}`;
+        navigator.clipboard.writeText(t).then(() => alert("Resumo copiado para o WhatsApp!"));
+    }
+</script>
+</body>
+</html>
